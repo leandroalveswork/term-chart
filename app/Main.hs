@@ -48,27 +48,33 @@ columnIntro xNumber
   | xNumber `mod` 5 == 0 = (\text -> if length text == 1 then text ++ " " else text) (show xNumber)
   | otherwise = "| "
 
-drawGraph :: GraphView -> CNumReader -> [String]
-drawGraph g rf = let totalDrawing :: [(Int, Int)]
-                     totalDrawing = foldMap 
-                                      (filter ((\y -> y > 0 && y <= vHeight g * 2).snd) . drawColumnVarying rf) 
-                                      [1..(vWidth g * 2)]
-                 in (foldMap 
-                      (\yPx -> [lineIntro (yPx `div` 2) ++ foldMap 
-                        (\xPx -> case (any (==(xPx, yPx)) totalDrawing, any (==(xPx, yPx - 1)) totalDrawing) of
-                                      (False, False) -> " "
-                                      (False, True)  -> "▄"
-                                      (True, False)  -> "▀"
-                                      (True, True)   -> "█"
-                        )
-                        [1..(vWidth g * 2)]
-                      ])
-                      [(vHeight g * 2),(vHeight g * 2) - 2..1])
-                      ++ ["   " ++ foldMap columnIntro [1..(vWidth g)]]
+getPixels :: GraphView -> CNumReader -> [(Int, Int)]
+getPixels g rf = foldMap 
+                   (filter ((\y -> y > 0 && y <= vHeight g * 2).snd) . drawColumnVarying rf)  
+                   [1..(vWidth g * 2)]  
+
+drawGraph :: GraphView -> [(Int, Int)] -> [String]
+drawGraph g pixels = (foldMap 
+                       (\yPx -> [lineIntro (yPx `div` 2) ++ foldMap 
+                         (\xPx -> case (any (==(xPx, yPx)) pixels, any (==(xPx, yPx - 1)) pixels) of
+                                       (False, False) -> " "
+                                       (False, True)  -> "▄"
+                                       (True, False)  -> "▀"
+                                       (True, True)   -> "█"
+                         )
+                         [1..(vWidth g * 2)]
+                       ])
+                       [(vHeight g * 2),(vHeight g * 2) - 2..1])
+                       ++ ["   " ++ foldMap columnIntro [1..(vWidth g)]]
+
+defaultPixels :: (Rational -> Rational) -> [(Int, Int)]
+defaultPixels = getPixels defaultGraphView . CNumReader
+
+defaultDraw :: [(Int, Int)] -> IO ()
+defaultDraw = putStrLn . unlines . drawGraph defaultGraphView
 
 autoDraw :: (Rational -> Rational) -> IO ()
-autoDraw f = 
-  putStrLn (unlines (drawGraph defaultGraphView (CNumReader f)))
+autoDraw = defaultDraw . defaultPixels
 
 byFractional :: (Fractional a, Real a) => (a -> a) -> Rational -> Rational
 byFractional f = toRational . f . fromRational 
@@ -85,9 +91,6 @@ main = do
                       xFraction = x - fromIntegral integX
                   in 5 + toRational (integX `mod` 10) + xFraction)
                   -}
-  autoDraw (\x -> toRational (floor (x / 5) * 5))
-
-  (autoDraw . byFractional) (\x -> 20 / (1.12 ** x))
   (autoDraw . byFractional) (\x -> 0.2 * (1.12 ** x))
   
   --(autoDraw . byFractional) (\x -> 10 + sinDiff x * (2 - x / 20))
@@ -97,6 +100,13 @@ main = do
   (autoDraw . byFractional) (\x -> 10 + (sinDiff x + modDiff x) / 2)
   --(autoDraw . byFractional) (\x -> 10 + (tanDiff x + modDiff x) / 2)
   --(autoDraw . byFractional) (\x -> 10 + sinDiff x * modDiff x)
+
+  (let fx :: [(Int, Int)]
+       fx = defaultPixels (\x -> 0.03 * (x * x))
+       gx :: [(Int, Int)]
+       gx = defaultPixels (\x -> 0.5 * x)
+       in defaultDraw (fx ++ gx))
+
   where sinDiff :: (RealFrac a, Floating a) => a -> a
         sinDiff w = sin (w * (pi / 2) / 5) * 5
         modDiff :: (RealFrac a, Floating a) => a -> a
