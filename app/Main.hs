@@ -76,8 +76,17 @@ defaultDraw = putStrLn . unlines . drawGraph defaultGraphView
 autoDraw :: (Rational -> Rational) -> IO ()
 autoDraw = defaultDraw . defaultPixels
 
+newV :: Int -> Int -> GraphView
+newV wid hei = GraphView { vWidth = wid, vHeight = hei }
+
+drawByView :: GraphView -> (Rational -> Rational) -> IO ()
+drawByView graphView = (putStrLn . unlines) . (drawGraph graphView) . (getPixels graphView) . CNumReader
+
 byFractional :: (Fractional a, Real a) => (a -> a) -> Rational -> Rational
-byFractional f = toRational . f . fromRational 
+byFractional f = toRational . f . fromRational
+
+zoomsBy :: Rational -> (Rational -> Rational) -> (Rational -> Rational)
+zoomsBy scaleTimes f = (*scaleTimes) . f . (/scaleTimes)
 
 main :: IO ()
 main = do
@@ -85,17 +94,16 @@ main = do
   (autoDraw . byFractional) (\x -> 10 + sin (x * (pi / 2) / 5) * 10)
   (autoDraw . byFractional) (\x -> 10 + tan (x * (pi / 2) / 5) * 3)
   autoDraw (\x -> if x == 0 then 1000000 else 20 / x)
-  autoDraw (\x -> let integX :: Int
-                      integX = floor x
-                      xFraction :: Rational
-                      xFraction = x - fromIntegral integX
-                  in 5 + toRational (integX `mod` 10) + xFraction)
-                  -}
+  -}
+  (autoDraw . byFractional) (\x -> 10 + cos (x * (pi / 2) / 5) * 5)
+
+                  
   (autoDraw . byFractional) (\x -> 0.2 * (1.12 ** x))
-  
+
   --(autoDraw . byFractional) (\x -> 10 + sinDiff x * (2 - x / 20))
   (autoDraw . byFractional) (\x -> 10 + sinDiff x)
-  (autoDraw . byFractional) (\x -> 10 + modDiff x)
+  (autoDraw . byFractional) (\x -> 10 + tanDiff x)
+  (autoDraw . byFractional) (\x -> 10 + (modDiff x) * (x / 25))
   
   (autoDraw . byFractional) (\x -> 10 + (sinDiff x + modDiff x) / 2)
   --(autoDraw . byFractional) (\x -> 10 + (tanDiff x + modDiff x) / 2)
@@ -106,9 +114,28 @@ main = do
        gx :: [(Int, Int)]
        gx = defaultPixels (\x -> 0.5 * x)
        in defaultDraw (fx ++ gx))
+  (let fx :: [(Int, Int)]
+       fx = defaultPixels (byFractional (\x -> 10 + sinDiff x))
+       gx :: [(Int, Int)]
+       gx = defaultPixels (byFractional (\x -> 10 + cosDiff x))
+       in defaultDraw (fx ++ gx))
+
+  autoDraw ((\x -> let integX :: Int
+                       integX = floor (abs x)
+                       xFraction :: Rational
+                       xFraction = (abs x) - fromIntegral integX
+                       multip :: Rational
+                       multip = (fromIntegral (integX `div` 5)) * 0.67
+                   in 10 + (toRational (integX `mod` 5) + xFraction) * multip) . (\x -> x -20))
+
+  (drawByView (newV 20 20) . byFractional) (\x -> (x * (x / 6) / 5) * 5)
+  (drawByView (newV 20 20) . zoomsBy 20 . byFractional) (\x -> if x < 1 then 0.1 / (1 - x) else 2)
+  (drawByView (newV 30 30) . zoomsBy 5 . byFractional) (\x -> fromIntegral (floor x))
 
   where sinDiff :: (RealFrac a, Floating a) => a -> a
         sinDiff w = sin (w * (pi / 2) / 5) * 5
+        cosDiff :: (RealFrac a, Floating a) => a -> a
+        cosDiff w = cos (w * (pi / 2) / 5) * 5
         modDiff :: (RealFrac a, Floating a) => a -> a
         modDiff w = let integW :: Int
                         integW = floor w
